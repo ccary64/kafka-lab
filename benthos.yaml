@@ -1,0 +1,49 @@
+http:
+  enabled: true
+  address: 0.0.0.0:4195
+  root_path: /benthos
+  debug_endpoints: false
+  cert_file: ''
+  key_file: ''
+  cors:
+    enabled: false
+    allowed_origins: []
+  basic_auth:
+    enabled: false
+    realm: restricted
+    username: ''
+    password_hash: ''
+    algorithm: sha256
+    salt: ''
+
+input:
+  kafka:
+    addresses:
+      - kafka:9092
+    topics:
+      - test_1
+    consumer_group: "1"
+    checkpoint_limit: 1024
+    auto_replay_nacks: true
+
+output:
+  label: ''
+  sql_insert:
+    init_statement: |2
+        CREATE TABLE IF NOT EXISTS events (
+          id VARCHAR,
+          data VARCHAR
+        );
+    driver: postgres
+    dsn: postgres://postgresusersink:postgrespw@sink-db:5432/sinkdb?sslmode=disable
+    table: events
+    columns:
+      [
+        'id',
+        'data',
+      ]
+    args_mapping: root = [this.id.string(), this.data.string()]
+    max_in_flight: 64
+    batching:
+      count: 100
+      period: 100ms

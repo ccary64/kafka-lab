@@ -1,0 +1,83 @@
+services:
+  zookeeper:
+    image: debezium/zookeeper:2.2
+    ports:
+      - 2181:2181
+      - 2888:2888
+      - 3888:3888
+  kafka:
+    image: debezium/kafka:2.2
+    ports:
+      - 9092:9092
+    links:
+      - zookeeper
+    environment:
+      - ZOOKEEPER_CONNECT=zookeeper:2181
+      # For local development of toast-value-store
+      # - ADVERTISED_HOST_NAME=192.168.1.4
+      - KAFKA_GROUP_MIN_SESSION_TIMEOUT_MS=250
+  #connect:
+  #  build:
+  #    context: connect
+  #  ports:
+  #    - 8083:8083
+  #  links:
+  #    - kafka
+  #  environment:
+  #    - BOOTSTRAP_SERVERS=kafka:9092
+  #    - GROUP_ID=1
+  #    - CONFIG_STORAGE_TOPIC=my_connect_configs
+  #    - OFFSET_STORAGE_TOPIC=my_connect_offsets
+  #    - STATUS_STORAGE_TOPIC=my_source_connect_statuses
+  #    - ENABLE_DEBEZIUM_KC_REST_EXTENSION=true
+  #    - ENABLE_DEBEZIUM_SCRIPTING=true
+  #    - CONNECT_REST_EXTENSION_CLASSES=io.debezium.kcrestextension.DebeziumConnectRestExtension
+  #    - CONNECT_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #    - CONNECT_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #    - CONNECT_INTERNAL_KEY_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #    - CONNECT_INTERNAL_VALUE_CONVERTER=org.apache.kafka.connect.json.JsonConverter
+  #    - CONNECT_SCHEMAS_ENABLE=false
+  #    - CONNECT_VALUE_CONVERTER_SCHEMAS_ENABLE=false
+  #    - CONNECT_KEY_CONVERTER_SCHEMAS_ENABLE=false
+  #schema-registry:
+  #  image: confluentinc/cp-schema-registry:7.5.0
+  #  hostname: schema-registry
+  #  ports:
+  #    - 8084:8081
+  #  depends_on:
+  #    - zookeeper
+  #    - kafka
+  #  environment:
+  #    SCHEMA_REGISTRY_KAFKASTORE_BOOTSTRAP_SERVERS: PLAINTEXT://kafka:9092
+  #    SCHEMA_REGISTRY_HOST_NAME: schema-registry
+  #    SCHEMA_REGISTRY_KAFKASTORE_CONNECTION_URL: zookeeper:2181
+  #    SCHEMA_REGISTRY_LISTENERS: http://0.0.0.0:8081
+  kafka-ui:
+    container_name: kafka-ui
+    image: provectuslabs/kafka-ui:latest
+    ports:
+      - 8081:8080
+    links:
+      - connect
+    environment:
+      DYNAMIC_CONFIG_ENABLED: 'true'
+      KAFKA_CLUSTERS_0_NAME: debezium
+      KAFKA_CLUSTERS_0_BOOTSTRAPSERVERS: kafka:9092
+  sink-db:
+    image: debezium-lab/toast-sink-db:2.2
+    build:
+      context: sink-db
+    ports:
+      - "5433:5432"
+    environment:
+      - POSTGRES_USER=postgresusersink
+      - POSTGRES_PASSWORD=postgrespw
+      - POSTGRES_DB=sinkdb
+  connect:
+    image: jeffail/benthos
+    ports:
+      - 4195:4195
+    volumes:
+      - ./benthos.yaml:/benthos.yaml
+    depends_on:
+      - kafka
